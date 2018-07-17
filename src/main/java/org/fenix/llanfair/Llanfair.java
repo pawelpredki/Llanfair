@@ -1,5 +1,6 @@
 package org.fenix.llanfair;
 
+import org.fenix.Broadcast.Broadcaster;
 import org.fenix.llanfair.config.Settings;
 import org.fenix.llanfair.gui.RunPane;
 import org.fenix.utils.Resources;
@@ -33,7 +34,7 @@ import java.util.logging.Logger;
  * @author Xavier "Xunkar" Sencert
  * @version 1.5
  */
-public class Llanfair extends BorderlessFrame implements TableModelListener, 
+public class Llanfair extends BorderlessFrame implements TableModelListener,
 		LocaleListener, MouseWheelListener, ActionListener, NativeKeyListener,
 		PropertyChangeListener, WindowListener, ComponentListener {
 
@@ -81,6 +82,8 @@ public class Llanfair extends BorderlessFrame implements TableModelListener,
 
 	private Dimension preferredSize;
 
+	private Broadcaster broadcaster;
+
 	/**
 	 * Creates and initializes the application. As with any Swing application
 	 * this constructor should be called from within a thread to avoid
@@ -122,6 +125,8 @@ public class Llanfair extends BorderlessFrame implements TableModelListener,
 		boolean behaviourSucceed = setBehavior();
 		if (!behaviourSucceed)
 			return;
+
+		broadcaster = new Broadcaster();
 
 		setRun( run );
 
@@ -198,6 +203,12 @@ public class Llanfair extends BorderlessFrame implements TableModelListener,
 		} else {
 			runPane = new RunPane( run );
 			add( runPane );
+		}
+		// If we have a Broadcaster, set the new model; else, create the Broadcaster
+		if ( broadcaster != null ) {
+			broadcaster.setRun( run );
+		} else {
+			broadcaster = new Broadcaster( run );
 		}
 		Settings.setRun( run );
 		run.addTableModelListener( this );
@@ -369,6 +380,7 @@ public class Llanfair extends BorderlessFrame implements TableModelListener,
 	 * our children and update ourself with the new value of the given property.
 	 */
 	@Override public void propertyChange( PropertyChangeEvent event ) {
+		broadcaster.processPropertyChangeEvent( event );
 		runPane.processPropertyChangeEvent( event );
 		String property = event.getPropertyName();
 
