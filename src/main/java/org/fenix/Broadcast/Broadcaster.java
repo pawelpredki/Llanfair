@@ -37,7 +37,7 @@ import org.apache.http.util.EntityUtils;
 public class Broadcaster {
 
   private static final String LOG_PREFIX = "Broadcaster: ";
-  private static final String BROADCAST_URL = "http://localhost:8080";
+  private static final String BROADCAST_URL = "http://localhost:8080/llanfair";
 
   private Run run;
 
@@ -51,7 +51,6 @@ public class Broadcaster {
   }
 
   public void setRun(Run run) {
-    System.out.println("New run");
     this.run = run;
   }
 
@@ -59,19 +58,11 @@ public class Broadcaster {
     String property = event.getPropertyName();
     JsonObject retObj = null;
 		if (Run.STATE_PROPERTY.equals(property)) {
-      State runState = run.getState();
-			if (runState.equals(State.ONGOING)) {
-				System.out.println(LOG_PREFIX + "Run started");
-			} else if (runState.equals(State.STOPPED)) {
-				System.out.println(LOG_PREFIX + "Run stopped");
-			} else if (runState.equals(State.READY)) {
-        System.out.println(LOG_PREFIX + "Run reset");
-      }
+      retObj = fireStateEvent(event);
 		} else if (Run.CURRENT_SEGMENT_PROPERTY.equals(property)) {
-      System.out.println(LOG_PREFIX + "New segment");
       retObj = fireSegmentEvent(event);
-		} else if (Run.DELAYED_START_PROPERTY.equals(property)) {
-
+		} else if (Run.COMPLETED_ATTEMPT_COUNTER_PROPERTY.equals(property)) {
+      retObj = fireCompletedRunEvent(event);
 		}
 
     if (null != retObj) {
@@ -85,16 +76,49 @@ public class Broadcaster {
     int currentSegment = (int) event.getNewValue();
     if (currentSegment > prevSegment && prevSegment > -1) {
 		    Segment segment = run.getSegment(prevSegment);
-        Time liveRun = segment.getTime(Segment.LIVE);
-        Time bestRun = segment.getTime(Segment.BEST);
+        Time liveTime = segment.getTime(Segment.LIVE);
+        Time bestTime = segment.getTime(Segment.BEST);
+        Time runTime = segment.getTime(Segment.RUN);
+        Time bestDelta = segment.getTime(Segment.DELTA_BEST);
+        Time runDelta = segment.getTime(Segment.DELTA_RUN);
 
         JsonObjectBuilder bld = Json.createObjectBuilder();
-        bld.add("type", "SEGMENT").add("name", run.getName()).add("segment", segment.getName()).add("liveTime", liveRun.getMilliseconds()).add("bestTime", bestRun.getMilliseconds());
+        bld.add("type", "SEGMENT")
+        .add("name", run.getName())
+        .add("segment", segment.getName())
+        .add("segmentNo", currentSegment)
+        .add("segmentTotal", run.getRowCount())
+        .add("liveTime", liveTime.getMilliseconds())
+        .add("bestTime", null != bestTime ? bestTime.getMilliseconds() : 0)
+        .add("runTime", null != runTime ? runTime.getMilliseconds() : 0)
+        .add("bestDelta", null != bestDelta ? bestDelta.getMilliseconds() : 0)
+        .add("runDelta", null != runDelta ? runDelta.getMilliseconds() : 0);
         return bld.build();
     }
-
     return null;
+  }
 
+  private JsonObject fireStateEvent(PropertyChangeEvent event) {
+    State runState = run.getState();
+    if (runState.equals(State.ONGOING)) {
+      return Json.createObjectBuilder().add("type", "RUN_START")
+      .add("name", run.getName())
+      .add("attempt", run.getNumberOfAttempts()).build();
+    }
+    return null;
+  }
+
+  private JsonObject fireCompletedRunEvent(PropertyChangeEvent event) {
+    Time liveTime = run.getTime(Segment.LIVE);
+    Time runTime = run.getTime(Segment.RUN);
+
+    return Json.createObjectBuilder()
+    .add("type", "RUN_COMPLETED")
+    .add("name", run.getName())
+    .add("attempt", run.getNumberOfAttempts())
+    .add("completed", run.getNumberOfCompletedAttempts())
+    .add("liveTime", null != liveTime ? liveTime.getMilliseconds() : 0)
+    .add("runTime", null != runTime ? runTime.getMilliseconds() : 0).build();
   }
 
   private void sendBroadcast(String stringEntity) {

@@ -27,7 +27,7 @@ import java.util.List;
  * <em>split</em>, enregistrant le nouveau temps réalisé. Différentes méthodes
  * sont disponibles afin de comparer le temps réalisé avec le temps objectif.
  * De plus, {@code Run} implémente {@link TableModel} dans lequel chaque segment
- * est une ligne.  
+ * est une ligne.
  *
  * @author  Xavier "Xunkar" Sencert
  * @see     TableModel
